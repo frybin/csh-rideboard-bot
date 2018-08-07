@@ -1,7 +1,6 @@
-from flask import Flask, request, make_response, Response
 import os
 import json
-
+from flask import Flask, request, make_response, Response
 from slackclient import SlackClient
 
 # Flask web server for incoming traffic from Slack
@@ -53,11 +52,11 @@ COFFEE_ORDERS[user_id] = {
 def message_actions():
     # Parse the request payload
     message_action = json.loads(request.form["payload"])
-    user_id = message_action["user"]["id"]
+    user_idt = message_action["user"]["id"]
 
     if message_action["type"] == "interactive_message":
         # Add the message_ts to the user's order info
-        COFFEE_ORDERS[user_id]["message_ts"] = message_action["message_ts"]
+        COFFEE_ORDERS[user_idt]["message_ts"] = message_action["message_ts"]
 
         # Show the ordering dialog to the user
         open_dialog = slack_client.api_call(
@@ -66,7 +65,7 @@ def message_actions():
             dialog={
                 "title": "Request a coffee",
                 "submit_label": "Submit",
-                "callback_id": user_id + "coffee_order_form",
+                "callback_id": user_idt + "coffee_order_form",
                 "elements": [
                     {
                         "label": "Coffee Type",
@@ -101,19 +100,19 @@ def message_actions():
         # Update the message to show that we're in the process of taking their order
         slack_client.api_call(
             "chat.update",
-            channel=COFFEE_ORDERS[user_id]["order_channel"],
+            channel=COFFEE_ORDERS[user_idt]["order_channel"],
             ts=message_action["message_ts"],
             text=":pencil: Taking your order...",
             attachments=[]
         )
 
     elif message_action["type"] == "dialog_submission":
-        coffee_order = COFFEE_ORDERS[user_id]
+        coffee_order = COFFEE_ORDERS[user_idt]
 
         # Update the message to show that we're in the process of taking their order
         slack_client.api_call(
             "chat.update",
-            channel=COFFEE_ORDERS[user_id]["order_channel"],
+            channel=COFFEE_ORDERS[user_idt]["order_channel"],
             ts=coffee_order["message_ts"],
             text=":white_check_mark: Order received!",
             attachments=[]
