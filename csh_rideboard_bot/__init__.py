@@ -4,21 +4,22 @@ import json
 
 from slackclient import SlackClient
 
-# Your app's Slack bot user token
-SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
-SLACK_VERIFICATION_TOKEN = os.environ["SLACK_VERIFICATION_TOKEN"]
-
-# Slack client for Web API requests
-slack_client = SlackClient(SLACK_BOT_TOKEN)
-
 # Flask web server for incoming traffic from Slack
 app = Flask(__name__)
+
+if os.path.exists(os.path.join(os.getcwd(), "config.py")):
+    app.config.from_pyfile(os.path.join(os.getcwd(), "config.py"))
+else:
+    app.config.from_pyfile(os.path.join(os.getcwd(), "config.env.py"))
+
+# Slack client for Web API requests
+slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 
 # Dictionary to store coffee orders. In the real world, you'd want an actual key-value store
 COFFEE_ORDERS = {}
 
 # Send a message to the user asking if they would like coffee
-user_id = "U0CAV5XME"
+user_id = "CC39AGPDX"
 
 order_dm = slack_client.api_call(
   "chat.postMessage",
@@ -39,6 +40,7 @@ order_dm = slack_client.api_call(
   }]
 )
 
+#print(slack_client.api_call("channels.list"))
 # Create a new order for this user in the COFFEE_ORDERS dictionary
 COFFEE_ORDERS[user_id] = {
     "order_channel": order_dm["channel"],
