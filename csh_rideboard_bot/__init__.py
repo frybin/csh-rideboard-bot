@@ -47,6 +47,9 @@ COFFEE_ORDERS[user_id] = {
     "order": {}
 }
 
+@app.route('/')
+def hello_world():
+    return 'Hello, World!'
 
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
