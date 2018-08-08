@@ -51,7 +51,7 @@ COFFEE_ORDERS[user_id] = {
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     # Parse the request payload
-    request_json = request.get_json(force=True)
+    request_json = request.get_json() or request.form
     print(request_json)
     message_action = json.loads(request_json)
     print(message_action)
