@@ -51,10 +51,9 @@ COFFEE_ORDERS[user_id] = {
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     # Parse the request payload
-    try:
-        message_action = json.loads(request.form["payload"])
-    except:
-        message_action = request.form.keys()[0]
+    request_json = request.get_json(force=True)
+    print(request_json)
+    message_action = json.loads(request_json)
     print(message_action)
     user_id = message_action["user"]["id"]
     print(message_action)
