@@ -18,7 +18,7 @@ slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 COFFEE_ORDERS = {}
 
 # Send a message to the user asking if they would like coffee
-user_id = "CC39AGPDX"
+user_id = "UC4SNFTCP"
 
 order_dm = slack_client.api_call(
   "chat.postMessage",
