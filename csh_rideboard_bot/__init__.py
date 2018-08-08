@@ -1,7 +1,6 @@
 import os
 import json
 from flask import Flask, request, make_response, Response
-from urllib.parse import parse_qs
 from slackclient import SlackClient
 
 # Flask web server for incoming traffic from Slack
@@ -48,27 +47,14 @@ COFFEE_ORDERS[user_id] = {
     "order": {}
 }
 
-@app.route("/slack/message_actions", methods=["POST"])
-def message_actions():
-    # Parse the request payload
-    request_json = request.get_json() or request.form
-    print(request_json)
-    message_action = json.loads(request_json)
-    print(message_action)
-    user_id = message_action["user"]["id"]
-    print(message_action)
-    if message_action["type"] == "interactive_message":
-        # Add the message_ts to the user's order info
-        COFFEE_ORDERS[user_id]["message_ts"] = message_action["message_ts"]
-        print(COFFEE_ORDERS)
-        # Show the ordering dialog to the user
-        open_dialog = slack_client.api_call(
+def dialog_popup(trigger,user_id_pram):
+    open_dialog = slack_client.api_call(
             "dialog.open",
-            trigger_id=message_action["trigger_id"],
+            trigger_id=trigger,
             dialog={
                 "title": "Request a coffee",
                 "submit_label": "Submit",
-                "callback_id": user_id + "coffee_order_form",
+                "callback_id": user_id_pram + "coffee_order_form",
                 "elements": [
                     {
                         "label": "Coffee Type",
@@ -97,6 +83,30 @@ def message_actions():
                 ]
             }
         )
+    return open_dialog
+
+@app.route("/slack/slash_actions", methods=["POST"])
+def slash_actions():
+    # Parse the request payload
+    request_json = request.form
+    print(request_json)
+    user_ida = request_json["user_id"]
+    # Show the ordering dialog to the user
+    open_dialog = dialog_popup(request_json["trigger_id"],user_ida)
+    print(open_dialog)
+    return make_response("", 200)
+
+@app.route("/slack/message_actions", methods=["POST"])
+def message_actions():
+    message_action = json.loads(request.form["payload"])
+    print(message_action)
+    user_ida = message_action["user"]["id"]
+    if message_action["type"] == "interactive_message":
+        # Add the message_ts to the user's order info
+        COFFEE_ORDERS[user_id]["message_ts"] = message_action["message_ts"]
+        print(COFFEE_ORDERS)
+        # Show the ordering dialog to the user
+        open_dialog = dialog_popup(message_action["trigger_id"],user_ida)
 
         print(open_dialog)
 
