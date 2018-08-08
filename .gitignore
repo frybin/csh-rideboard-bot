@@ -1,2 +1,4 @@
 venv
 .vscode
+csh_rideboard_bot/__pycache__
+__pycache__
