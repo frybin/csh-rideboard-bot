@@ -1,6 +1,7 @@
 import os
 import json
 from flask import Flask, request, make_response, Response
+from urllib.parse import parse_qs
 from slackclient import SlackClient
 
 # Flask web server for incoming traffic from Slack
@@ -50,7 +51,11 @@ COFFEE_ORDERS[user_id] = {
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     # Parse the request payload
-    message_action = json.loads(request.form["payload"])
+    try:
+        message_action = json.loads(request.form["payload"])
+    except:
+        message_action = request.form.keys()[0]
+    print(message_action)
     user_id = message_action["user"]["id"]
     print(message_action)
     if message_action["type"] == "interactive_message":
