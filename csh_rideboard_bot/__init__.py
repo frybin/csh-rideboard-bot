@@ -52,11 +52,11 @@ def message_actions():
     # Parse the request payload
     message_action = json.loads(request.form["payload"])
     user_idt = message_action["user"]["id"]
-
+    print(message_actions)
     if message_action["type"] == "interactive_message":
         # Add the message_ts to the user's order info
         COFFEE_ORDERS[user_idt]["message_ts"] = message_action["message_ts"]
-
+        print(COFFEE_ORDERS)
         # Show the ordering dialog to the user
         open_dialog = slack_client.api_call(
             "dialog.open",
