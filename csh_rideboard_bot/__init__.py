@@ -17,37 +17,14 @@ slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 # Dictionary to store coffee orders. In the real world, you'd want an actual key-value store
 COFFEE_ORDERS = {}
 
-# Send a message to the user asking if they would like coffee
-user_id = "UC4SNFTCP"
+def new_order(orders, channel, user_num):
+    orders[user_num] = {
+        "order_channel": channel,
+        "message_ts": "",
+        "order": {}
+    }
 
-order_dm = slack_client.api_call(
-  "chat.postMessage",
-  as_user=True,
-  channel=user_id,
-  text="I am Coffeebot ::robot_face::, and I\'m here to help bring you fresh coffee :coffee:",
-  attachments=[{
-    "text": "",
-    "callback_id": user_id + "coffee_order_form",
-    "color": "#3AA3E3",
-    "attachment_type": "default",
-    "actions": [{
-      "name": "coffee_order",
-      "text": ":coffee: Order Coffee",
-      "type": "button",
-      "value": "coffee_order"
-    }]
-  }]
-)
-
-#print(slack_client.api_call("channels.list"))
-# Create a new order for this user in the COFFEE_ORDERS dictionary
-COFFEE_ORDERS[user_id] = {
-    "order_channel": order_dm["channel"],
-    "message_ts": "",
-    "order": {}
-}
-
-def dialog_popup(trigger,user_id_pram):
+def dialog_popup(trigger, user_id_pram):
     open_dialog = slack_client.api_call(
             "dialog.open",
             trigger_id=trigger,
@@ -85,6 +62,26 @@ def dialog_popup(trigger,user_id_pram):
         )
     return open_dialog
 
+def invis_messgae(user_id, channel_id):
+    order_dm = slack_client.api_call(
+    "chat.postEphemeral",
+    channel=channel_id,
+    text="I am Coffeebot ::robot_face::, and I\'m here to help bring you fresh coffee :coffee:",
+    attachments=[{
+        "text": "",
+        "callback_id": user_id + "coffee_order_form",
+        "color": "#3AA3E3",
+        "attachment_type": "default",
+        "actions": [{
+        "name": "coffee_order",
+        "text": ":coffee: Order Coffee",
+        "type": "button",
+        "value": "coffee_order"
+        }]
+    }]
+    )
+    return order_dm
+
 @app.route("/slack/slash_actions", methods=["POST"])
 def slash_actions():
     # Parse the request payload
@@ -92,7 +89,18 @@ def slash_actions():
     print(request_json)
     user_ida = request_json["user_id"]
     # Show the ordering dialog to the user
-    open_dialog = dialog_popup(request_json["trigger_id"],user_ida)
+    dialog_popup(request_json["trigger_id"], user_ida)
+    return make_response("", 200)
+
+@app.route("/slack/test_actions", methods=["POST"])
+def message_test():
+    # Parse the request payload
+    request_json = request.form
+    print(request_json)
+    user_id = request_json["user_id"]
+    channel_id = request_json["channel_id"]
+    # Show the ordering dialog to the user
+    open_dialog = invis_messgae(user_id, channel_id)
     print(open_dialog)
     return make_response("", 200)
 
@@ -101,31 +109,32 @@ def message_actions():
     message_action = json.loads(request.form["payload"])
     print(message_action)
     user_ida = message_action["user"]["id"]
+    if user_ida not in COFFEE_ORDERS.keys():
+        new_order(COFFEE_ORDERS, message_action["channel"]["id"], user_ida)
     if message_action["type"] == "interactive_message":
         # Add the message_ts to the user's order info
-        COFFEE_ORDERS[user_id]["message_ts"] = message_action["message_ts"]
-        print(COFFEE_ORDERS)
+        COFFEE_ORDERS[user_ida]["message_ts"] = message_action["message_ts"]
         # Show the ordering dialog to the user
-        open_dialog = dialog_popup(message_action["trigger_id"],user_ida)
+        open_dialog = dialog_popup(message_action["trigger_id"], user_ida)
 
         print(open_dialog)
 
         # Update the message to show that we're in the process of taking their order
         slack_client.api_call(
             "chat.update",
-            channel=COFFEE_ORDERS[user_id]["order_channel"],
+            channel=COFFEE_ORDERS[user_ida]["order_channel"],
             ts=message_action["message_ts"],
             text=":pencil: Taking your order...",
             attachments=[]
         )
 
     elif message_action["type"] == "dialog_submission":
-        coffee_order = COFFEE_ORDERS[user_id]
+        coffee_order = COFFEE_ORDERS[user_ida]
 
         # Update the message to show that we're in the process of taking their order
         slack_client.api_call(
             "chat.update",
-            channel=COFFEE_ORDERS[user_id]["order_channel"],
+            channel=COFFEE_ORDERS[user_ida]["order_channel"],
             ts=coffee_order["message_ts"],
             text=":white_check_mark: Order received!",
             attachments=[]
