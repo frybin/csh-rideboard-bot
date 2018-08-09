@@ -1,6 +1,6 @@
 import os
 import json
-from functools import reduce
+import requests
 from flask import Flask, request, make_response, Response
 from slackclient import SlackClient
 
@@ -14,7 +14,7 @@ else:
 
 # Slack client for Web API requests
 slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
-
+OAUTH_ID = app.config['OAUTH_TOKEN']
 # Dictionary to store coffee orders. In the real world, you'd want an actual key-value store
 COFFEE_ORDERS = {}
 
@@ -24,6 +24,12 @@ def new_order(orders, channel, user_num):
         "message_ts": "",
         "order": {}
     }
+
+def get_user_info(user_id):
+    addr = 'https://slack.com/api/users.profile.get?'
+    addr += 'token=' + OAUTH_ID + '&user=' + user_id
+    res = requests.get(addr)
+    print(res.json())
 
 def dialog_popup(trigger, user_id_pram):
     open_dialog = slack_client.api_call(

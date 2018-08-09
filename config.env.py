@@ -9,3 +9,8 @@ SERVER_NAME = os.environ.get('SERVER_NAME', 'rideboard-bot.csh.rit.edu')
 # Your app's Slack bot user token
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_VERIFICATION_TOKEN = os.environ["SLACK_VERIFICATION_TOKEN"]
+OAUTH_TOKEN = os.environ.get('SLACK_OAUTH_TOKEN', '')
+
+# RideBoard API config
+RIDEBOARD_ADDR = os.environ.get('RIDEBOARD', 'rideboard-api.csh.rit.edu')
+RIDEBOARD_KEY = os.environ.get('RIDEBOARD_API_KEY', '')
