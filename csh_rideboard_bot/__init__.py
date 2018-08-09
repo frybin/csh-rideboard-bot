@@ -1,5 +1,6 @@
 import os
 import json
+from functools import reduce
 from flask import Flask, request, make_response, Response
 from slackclient import SlackClient
 
@@ -64,21 +65,33 @@ def dialog_popup(trigger, user_id_pram):
 
 def invis_messgae(user_id, channel_id):
     order_dm = slack_client.api_call(
-    "chat.postEphemeral",
-    channel=channel_id,
-    text="I am Coffeebot ::robot_face::, and I\'m here to help bring you fresh coffee :coffee:",
-    attachments=[{
-        "text": "",
-        "callback_id": user_id + "coffee_order_form",
-        "color": "#3AA3E3",
-        "attachment_type": "default",
-        "actions": [{
-        "name": "coffee_order",
-        "text": ":coffee: Order Coffee",
-        "type": "button",
-        "value": "coffee_order"
-        }]
-    }]
+        "chat.postEphemeral",
+        channel=channel_id,
+        text="I am RideboardBot :oncoming_automobile:, and I\'m here to find you a ride :ride:",
+        attachments=[{
+            "text": "Click to see Current Rides",
+            "callback_id": user_id + "coffee_order_form",
+            "color": "#fc6819",
+            "attachment_type": "default",
+            "actions": [{
+            "name": "all_rides",
+            "text": ":blue_car: Rides",
+            "type": "button",
+            "value": "all_rides"
+            }]
+        }, {
+            "text": "",
+            "callback_id": user_id + "coffee_order_form",
+            "color": "#3AA3E3",
+            "attachment_type": "default",
+            "actions": [{
+            "name": "coffee_order",
+            "text": ":coffee: Order Coffee",
+            "type": "button",
+            "value": "coffee_order"
+            }]
+        }],
+        user=user_id
     )
     return order_dm
 
@@ -101,7 +114,6 @@ def message_test():
     channel_id = request_json["channel_id"]
     # Show the ordering dialog to the user
     open_dialog = invis_messgae(user_id, channel_id)
-    print(open_dialog)
     return make_response("", 200)
 
 @app.route("/slack/message_actions", methods=["POST"])
