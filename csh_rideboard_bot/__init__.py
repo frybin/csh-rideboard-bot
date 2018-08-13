@@ -15,15 +15,18 @@ else:
 # Slack client for Web API requests
 slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 OAUTH_ID = app.config['OAUTH_TOKEN']
+RIDEURL=app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
 # Dictionary to store coffee orders. In the real world, you'd want an actual key-value store
 COFFEE_ORDERS = {}
 
-def new_order(orders, channel, user_num):
-    orders[user_num] = {
-        "order_channel": channel,
-        "message_ts": "",
-        "order": {}
+def new_button(name, text, value):
+    attachment={
+        "name": name,
+        "text": text,
+        "type": "button",
+        "value": value
     }
+    return attachment
 
 def get_user_info(user_id):
     addr = 'https://slack.com/api/users.profile.get?'
@@ -75,8 +78,8 @@ def invis_messgae(user_id, channel_id):
         channel=channel_id,
         text="I am RideboardBot :oncoming_automobile:, and I\'m here to find you a ride :ride:",
         attachments=[{
-            "text": "Click to see Current Rides",
-            "callback_id": user_id + "coffee_order_form",
+            "text": "Click On the a Ride Button to see ride info",
+            "callback_id": user_id + "all_rides",
             "color": "#fc6819",
             "attachment_type": "default",
             "actions": [{
@@ -84,19 +87,13 @@ def invis_messgae(user_id, channel_id):
             "text": ":blue_car: Rides",
             "type": "button",
             "value": "all_rides"
-            }]
-        }, {
-            "text": "",
-            "callback_id": user_id + "coffee_order_form",
-            "color": "#3AA3E3",
-            "attachment_type": "default",
-            "actions": [{
-            "name": "coffee_order",
-            "text": ":coffee: Order Coffee",
+            },{
+            "name": "all_rides",
+            "text": ":blue_car: Rides",
             "type": "button",
-            "value": "coffee_order"
+            "value": "all_rides"
             }]
-        }],
+        },],
         user=user_id
     )
     return order_dm
@@ -122,13 +119,28 @@ def message_test():
     open_dialog = invis_messgae(user_id, channel_id)
     return make_response("", 200)
 
+@app.route("/slack/test_ride", methods=["POST"])
+def ride_test():
+    create_row_data = {'name': 'First Last',
+                  'address':'Address',
+                  'start_time':"Thu, 02 Aug 2018 06:13:00",
+                  'end_time':"Thu, 15 Aug 2018 06:13:00",
+                  'creator':'red'}
+    #res= requests.post(url=RIDEURL+"/create/event", json=create_row_data)
+    r=requests.get(RIDEURL+"/all")
+    temp=json.loads(r.text)
+    for i in range(len(temp)):
+        print(temp[i]["cars"])
+        print("")
+    return make_response("", 200)
+
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     message_action = json.loads(request.form["payload"])
     print(message_action)
     user_ida = message_action["user"]["id"]
     if user_ida not in COFFEE_ORDERS.keys():
-        new_order(COFFEE_ORDERS, message_action["channel"]["id"], user_ida)
+        new_button(COFFEE_ORDERS, message_action["channel"]["id"], user_ida)
     if message_action["type"] == "interactive_message":
         # Add the message_ts to the user's order info
         COFFEE_ORDERS[user_ida]["message_ts"] = message_action["message_ts"]
@@ -136,7 +148,6 @@ def message_actions():
         open_dialog = dialog_popup(message_action["trigger_id"], user_ida)
 
         print(open_dialog)
-
         # Update the message to show that we're in the process of taking their order
         slack_client.api_call(
             "chat.update",
