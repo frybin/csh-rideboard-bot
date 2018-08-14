@@ -41,6 +41,9 @@ def get_user_info(user_id):
     res = requests.get(addr)
     print(res.json())
 
+def csh_user_check():
+    return True
+
 def dialog_popup(trigger, user_id_pram):
     open_dialog = slack_client.api_call(
             "dialog.open",
@@ -90,12 +93,35 @@ def event_info(event_id, user_id, channel_id):
     count_cars = len(ride['cars'])
     car_buttons = []
     for car in ride['cars']:
-        car_buttons.append(new_button("get_car_info",car['name']+"'s Car",car['id']+"_car_id"))
+        car_buttons.append(new_button("get_car_info", car['name']+"'s Car", car['id']+"_car_id"))
     main_text = "Name of The Event: %d \nAddress of the Event:  %d \nStart Time of Event:  %d \nEnd Time of Event: %d \nCurrent Amount of Cars in the Event:  %d \n Event Creator:  %d \n"
     button_text = "Click on a Car to see Car info"
     shown_message = ephm_messgae(user_id, channel_id, car_buttons, main_text, button_text)
     return shown_message
-    
+
+def car_info(car_id, user_id, channel_id):
+    # Change URL to get a single ride event
+    car_info = requests.get(RIDEURL+"/"+car_id)
+    car = json.loads(car_info.text)
+    car_driver = car['name']
+    car_avalible_seats = int(car['max_capacity'])-int(car['current_capacity'])
+    car_departure_time = car['departure_time']
+    car_return_time = car['return_time']
+    car_current_passangers = car['riders']
+    car_driver_comment = car['driver_comment']
+    actions = []
+    if csh_user_check():
+        # All Text Check are Currently Temporary until I get internet to verify Things
+        if "CSH_USERNAME" in car_current_passangers:
+            actions.append(new_button("car_action", "Leave Car", "Link to delete user from car"))
+        elif "CSH_USERNAME" == car['username']:
+            actions.append(new_button("car_action", "Edit Car", "Link to for car owner to edit car"))
+        else:
+            actions.append(new_button("car_action", "Join Car", "Link to add user to car"))
+    main_text = "Driver Name: %d \nAvalible Seats:  %d \nDeparture Time:  %d \nReturn Time: %d \nCurrent Passangers in the Car  %d \nDriver Comments:  %d \n"
+    button_text = ""
+    shown_message = ephm_messgae(user_id, channel_id, actions, main_text, button_text)
+    return shown_message
 
 @app.route("/slack/slash_actions", methods=["POST"])
 def slash_actions():
