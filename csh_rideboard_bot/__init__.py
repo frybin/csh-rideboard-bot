@@ -15,18 +15,25 @@ else:
 # Slack client for Web API requests
 slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 OAUTH_ID = app.config['OAUTH_TOKEN']
-RIDEURL=app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
-# Dictionary to store coffee orders. In the real world, you'd want an actual key-value store
-COFFEE_ORDERS = {}
+RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
 
 def new_button(name, text, value):
-    attachment={
+    attachment = {
         "name": name,
         "text": text,
         "type": "button",
         "value": value
     }
     return attachment
+
+def create_numbers(max_option=10):
+    options = []
+    for i in range(2, max_option+2):
+        options.append({
+            "label": i,
+            "value": i
+        })
+    return options
 
 def get_user_info(user_id):
     addr = 'https://slack.com/api/users.profile.get?'
@@ -39,64 +46,56 @@ def dialog_popup(trigger, user_id_pram):
             "dialog.open",
             trigger_id=trigger,
             dialog={
-                "title": "Request a coffee",
+                "title": "Create Car",
                 "submit_label": "Submit",
-                "callback_id": user_id_pram + "coffee_order_form",
+                "callback_id": user_id_pram + "car_creation_form",
                 "elements": [
                     {
-                        "label": "Coffee Type",
+                        "label": "Amount of passengers",
                         "type": "select",
-                        "name": "meal_preferences",
-                        "placeholder": "Select a drink",
-                        "options": [
-                            {
-                                "label": "Cappuccino",
-                                "value": "cappuccino"
-                            },
-                            {
-                                "label": "Latte",
-                                "value": "latte"
-                            },
-                            {
-                                "label": "Pour Over",
-                                "value": "pour_over"
-                            },
-                            {
-                                "label": "Cold Brew",
-                                "value": "cold_brew"
-                            }
-                        ]
+                        "name": "passanger_amount",
+                        "placeholder": "Select number of passengers",
+                        "options": create_numbers
                     }
                 ]
             }
         )
     return open_dialog
 
-def invis_messgae(user_id, channel_id):
+def ephm_messgae(user_id, channel_id, actions, main_text, button_text):
     order_dm = slack_client.api_call(
         "chat.postEphemeral",
         channel=channel_id,
-        text="I am RideboardBot :oncoming_automobile:, and I\'m here to find you a ride :ride:",
+        text=main_text,
         attachments=[{
-            "text": "Click On the a Ride Button to see ride info",
+            "text": button_text,
             "callback_id": user_id + "all_rides",
             "color": "#fc6819",
             "attachment_type": "default",
-            "actions": [{
-            "name": "all_rides",
-            "text": ":blue_car: Rides",
-            "type": "button",
-            "value": "all_rides"
-            },{
-            "name": "all_rides",
-            "text": ":blue_car: Rides",
-            "type": "button",
-            "value": "all_rides"
-            }]
+            "actions": actions
         },],
         user=user_id
     )
     return order_dm
+
+def event_info(event_id, user_id, channel_id):
+    # Change URL to get a single ride event
+    ride_info = requests.get(RIDEURL+"/"+event_id)
+    ride = json.loads(ride_info.text)
+    event_name = ride['name']
+    event_address = ride['address']
+    event_creator = ride['creator']
+    event_start_time = ride['start_time']
+    event_end_time = ride['end_time']
+    count_cars = len(ride['cars'])
+    car_buttons = []
+    for car in ride['cars']:
+        car_buttons.append(new_button("get_car_info",car['name']+"'s Car",car['id']+"_car_id"))
+    main_text = "Name of The Event: %d \nAddress of the Event:  %d \nStart Time of Event:  %d \nEnd Time of Event: %d \nCurrent Amount of Cars in the Event:  %d \n Event Creator:  %d \n"
+    button_text = "Click on a Car to see Car info"
+    shown_message = ephm_messgae(user_id, channel_id, car_buttons, main_text, button_text)
+    return shown_message
+    
 
 @app.route("/slack/slash_actions", methods=["POST"])
 def slash_actions():
@@ -108,67 +107,40 @@ def slash_actions():
     dialog_popup(request_json["trigger_id"], user_ida)
     return make_response("", 200)
 
-@app.route("/slack/test_actions", methods=["POST"])
-def message_test():
-    # Parse the request payload
+@app.route("/slack/test_ride", methods=["POST"])
+def ride_test():
     request_json = request.form
     print(request_json)
     user_id = request_json["user_id"]
     channel_id = request_json["channel_id"]
-    # Show the ordering dialog to the user
-    open_dialog = invis_messgae(user_id, channel_id)
-    return make_response("", 200)
-
-@app.route("/slack/test_ride", methods=["POST"])
-def ride_test():
-    create_row_data = {'name': 'First Last',
-                  'address':'Address',
-                  'start_time':"Thu, 02 Aug 2018 06:13:00",
-                  'end_time':"Thu, 15 Aug 2018 06:13:00",
-                  'creator':'red'}
-    #res= requests.post(url=RIDEURL+"/create/event", json=create_row_data)
-    r=requests.get(RIDEURL+"/all")
-    temp=json.loads(r.text)
-    for i in range(len(temp)):
-        print(temp[i]["cars"])
-        print("")
+    actions = []
+    # create_row_data = {'name': 'First Last',
+    #               'address':'Address',
+    #               'start_time':"Thu, 02 Aug 2018 06:13:00",
+    #               'end_time':"Thu, 15 Aug 2018 06:13:00",
+    #               'creator':'red'}
+    # res= requests.post(url=RIDEURL+"/create/event", json=create_row_data)
+    rides_info = requests.get(RIDEURL+"/all")
+    rides = json.loads(rides_info.text)
+    for ride in rides:
+        actions.append(new_button("get_event_info", ":blue_car:"+ride["name"], ride["id"]+"_event_id"))
+    main_text = "I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride :ride:"
+    button_text = "Click On the a Ride Button to see ride info"
+    shown_message = ephm_messgae(user_id, channel_id, actions, main_text, button_text)
+    print(shown_message)
     return make_response("", 200)
 
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     message_action = json.loads(request.form["payload"])
     print(message_action)
-    user_ida = message_action["user"]["id"]
-    if user_ida not in COFFEE_ORDERS.keys():
-        new_button(COFFEE_ORDERS, message_action["channel"]["id"], user_ida)
+    user_id = message_action["user"]["id"]
     if message_action["type"] == "interactive_message":
-        # Add the message_ts to the user's order info
-        COFFEE_ORDERS[user_ida]["message_ts"] = message_action["message_ts"]
         # Show the ordering dialog to the user
-        open_dialog = dialog_popup(message_action["trigger_id"], user_ida)
-
-        print(open_dialog)
-        # Update the message to show that we're in the process of taking their order
-        slack_client.api_call(
-            "chat.update",
-            channel=COFFEE_ORDERS[user_ida]["order_channel"],
-            ts=message_action["message_ts"],
-            text=":pencil: Taking your order...",
-            attachments=[]
-        )
+        open_dialog = dialog_popup(message_action["trigger_id"], user_id)
 
     elif message_action["type"] == "dialog_submission":
-        coffee_order = COFFEE_ORDERS[user_ida]
-
-        # Update the message to show that we're in the process of taking their order
-        slack_client.api_call(
-            "chat.update",
-            channel=COFFEE_ORDERS[user_ida]["order_channel"],
-            ts=coffee_order["message_ts"],
-            text=":white_check_mark: Order received!",
-            attachments=[]
-        )
-
+        pass
     return make_response("", 200)
 
 
