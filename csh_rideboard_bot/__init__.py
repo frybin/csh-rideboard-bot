@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import requests
 from flask import Flask, request, make_response, Response
@@ -16,6 +17,7 @@ else:
 slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 OAUTH_ID = app.config['OAUTH_TOKEN']
 RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
+MAINTAINER = "red"
 
 def new_button(name, text, value):
     attachment = {
@@ -39,10 +41,21 @@ def get_user_info(user_id):
     addr = 'https://slack.com/api/users.profile.get?'
     addr += 'token=' + OAUTH_ID + '&user=' + user_id
     res = requests.get(addr)
-    print(res.json())
+    return res.json()["profile"]
 
-def csh_user_check():
-    return True
+def csh_user_check(user_id):
+    user_email = get_user_info(user_id)["email"]
+    rit_email = False
+    csh_email = False
+    username = ""
+    if re.match(r'.+@csh\.rit\.edu', user_email):
+        rit_email = True
+        csh_email = True
+        username = re.search(r'(.+)@csh\.rit\.edu', user_email).group(1)
+    elif re.match(r'.+@rit\.edu', user_email):
+        rit_email = True
+        username = re.search(r'(.+)@rit\.edu', user_email).group(1)+ "(RIT)"
+    return rit_email, csh_email, username
 
 def dialog_popup(trigger, user_id_pram):
     open_dialog = slack_client.api_call(
@@ -65,7 +78,8 @@ def dialog_popup(trigger, user_id_pram):
         )
     return open_dialog
 
-def ephm_messgae(user_id, channel_id, actions, main_text, button_text):
+def ephm_messgae(user_id, channel_id, actions, main_text, button_text=""):
+    print(get_user_info(user_id))
     order_dm = slack_client.api_call(
         "chat.postEphemeral",
         channel=channel_id,
@@ -104,9 +118,8 @@ def event_info(event_id, user_id, channel_id):
 
 def car_info(car_id, user_id, channel_id):
     # Change URL to get a single ride event
-    car_info = requests.get(RIDEURL+"/get/car?id="+car_id)
-    car = json.loads(car_info.text)[0]
-    print(car)
+    car_info_json = requests.get(RIDEURL+"/get/car?id="+car_id)
+    car = json.loads(car_info_json.text)[0]
     car_driver = car['name']
     car_avalible_seats = int(car['max_capacity'])-int(car['current_capacity'])
     car_departure_time = car['departure_time']
@@ -114,16 +127,17 @@ def car_info(car_id, user_id, channel_id):
     car_current_passangers = ", ".join(car['riders'])
     car_driver_comment = car['driver_comment']
     actions = []
-    # if csh_user_check():
-    #     # All Text Check are Currently Temporary until I get internet to verify Things
-    #     if "CSH_USERNAME" in car_current_passangers:
-    #         actions.append(new_button("car_action", "Leave Car", "Link to delete user from car"))
-    #     elif "CSH_USERNAME" == car['username']:
-    #         actions.append(new_button("car_action", "Edit Car", "Link to for car owner to edit car"))
-    #     else:
-    #         actions.append(new_button("car_action", "Join Car", "Link to add user to car"))
-    main_text = (f"Driver Name: {car_driver} \nAvalible Seats: {car_avalible_seats} \nDeparture Time: {car_departure_time} \n"
-                f"Return Time: {car_return_time} \nCurrent Passangers in the Car: {car_current_passangers} \nDriver Comments: {car_driver_comment} \n")
+    rit_check, csh_check, username = csh_user_check(user_id)
+    real_name = get_user_info(user_id)["real_name_normalized"]
+    if username in car_current_passangers and rit_check:
+        actions.append(new_button("leave_car_action", "Leave Car", str(car['ride_id'])+","+username))
+    elif username == car['username'] and csh_check:
+        actions.append(new_button("car_action", "Edit Car", "Link to for car owner to edit car"))
+    elif rit_check:
+        actions.append(new_button("join_car_action", "Join Car", f"{str(car_id)},{username},{real_name}"))
+    main_text = (f"Driver Name: {car_driver} \nAvalible Seats: {car_avalible_seats} \n"
+                f"Departure Time: {car_departure_time} \n" f"Return Time: {car_return_time} \n"
+                f"Current Passangers in the Car: {car_current_passangers} \nDriver Comments: {car_driver_comment} \n")
     button_text = ""
     shown_message = ephm_messgae(user_id, channel_id, actions, main_text, button_text)
     return shown_message
@@ -159,7 +173,6 @@ def ride_test():
     main_text = "I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride :ride:"
     button_text = "Click On the a Ride Button to see ride info"
     shown_message = ephm_messgae(user_id, channel_id, actions, main_text, button_text)
-    print(shown_message)
     return make_response("", 200)
 
 @app.route("/slack/message_actions", methods=["POST"])
@@ -169,13 +182,38 @@ def message_actions():
     user_id = message_action["user"]["id"]
     if message_action["type"] == "interactive_message":
         if message_action["actions"][0]["name"] == "get_event_info":
-            event_id=message_action["actions"][0]["value"].split("_")[0]
-            channel_id=message_action["channel"]["id"]
-            message=event_info(event_id,user_id,channel_id)
+            event_id = message_action["actions"][0]["value"].split("_")[0]
+            channel_id = message_action["channel"]["id"]
+            message = event_info(event_id, user_id, channel_id)
         elif message_action["actions"][0]["name"] == "get_car_info":
-            car_id=message_action["actions"][0]["value"].split("_")[0]
-            channel_id=message_action["channel"]["id"]
-            message=car_info(car_id,user_id,channel_id)
+            car_id = message_action["actions"][0]["value"].split("_")[0]
+            channel_id = message_action["channel"]["id"]
+            message = car_info(car_id, user_id, channel_id)
+        elif message_action["actions"][0]["name"] == "leave_car_action":
+            payload = message_action["actions"][0]["value"].split(",")
+            event_id = payload[0]
+            username = payload[1]
+            channel_id = message_action["channel"]["id"]
+            car_action = requests.put(RIDEURL+f"/leave/{event_id}/{username}")
+            print(car_action.status_code, car_action.text)
+            if car_action.status_code == 200:
+                ephm_messgae(user_id, channel_id, [], "You have successfully left the car :grin:")
+            else:
+                ephm_messgae(user_id, channel_id, [], "Oops, something went wrong please contact f{MAINTAINER} on slack")
+        elif message_action["actions"][0]["name"] == "join_car_action":
+            payload = message_action["actions"][0]["value"].split(",")
+            car_id = payload[0]
+            username = payload[1]
+            first_name = payload[2]
+            last_name = "(Slack)"
+            channel_id = message_action["channel"]["id"]
+            car_action = requests.put(RIDEURL+f"/join/{car_id}/{username}/{first_name}/{last_name}")
+            print(car_action.status_code, car_action.text)
+            if car_action.status_code == 200:
+                ephm_messgae(user_id, channel_id, [], "You have successfully joined the car :drooling_face:")
+            else:
+                ephm_messgae(user_id, channel_id, [], "Oops, something went wrong please contact f{MAINTAINER} on slack")
+        
         #open_dialog = dialog_popup(message_action["trigger_id"], user_id)
 
     elif message_action["type"] == "dialog_submission":
