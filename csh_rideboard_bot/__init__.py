@@ -1,8 +1,8 @@
 import os
 import re
 import json
+from datetime import datetime, timedelta
 import requests
-from datetime import datetime
 from flask import Flask, request, make_response, Response
 from slackclient import SlackClient
 
@@ -38,6 +38,17 @@ def create_numbers(max_option=10):
         })
     return options
 
+def create_dates(max_option=10):
+    options = []
+    time_format = '%a, %d %b %Y %H:%M:%S'
+    for i in range(1, max_option+1):
+        option = (datetime.now()+timedelta(days=i)).strftime(time_format)
+        options.append({
+            "label": option,
+            "value": option
+        })
+    return options
+
 def get_user_info(user_id):
     addr = 'https://slack.com/api/users.profile.get?'
     addr += 'token=' + OAUTH_ID + '&user=' + user_id
@@ -68,7 +79,7 @@ def create_dialog_dropdown(label, name, placeholder, options):
             }
     return result
 
-def create_dialog_text_field(label, name, placeholder, subtype):
+def create_dialog_text_field(label, name, placeholder, subtype=""):
     result = {
             "label": label,
             "name": name,
@@ -142,7 +153,10 @@ def event_info(event_id, user_id, channel_id):
     event_start_time = datetime.strptime(event_start_time, time_format).strftime(correct_time_format)
     event_end_time = datetime.strptime(event_end_time, time_format).strftime(correct_time_format)
     if csh_check:
-        car_buttons.append(new_button("create_car", "Create New Car", f"{event_id};{username};{real_name};{event_start_time};{event_end_time}"))
+        car_buttons.append(new_button("create_car", "Create New Car", (f"{event_id};{username};"
+                                        f"{real_name};{event_start_time};{event_end_time}")))
+    if username == event_creator and csh_check:
+        car_buttons.append(new_button("delete_event_action", "Delete Event", str(event_id)+","+username))
     shown_message = ephm_messgae(user_id, channel_id, car_buttons, main_text, button_text)
     return shown_message
 
@@ -183,6 +197,17 @@ def create_car(event_id, username, name, departure_time, return_time, max_capaci
     res = requests.post(url=RIDEURL+f"/create/car/{event_id}", json=create_row_data)
     return res
 
+def create_event(event_name, address, start_time, end_time, username,):
+    create_row_data = {
+                        'name': event_name,
+                        'address': address,
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'creator': username
+                        }
+    res = requests.post(url=RIDEURL+"/create/event", json=create_row_data)
+    return res
+
 @app.route("/slack/test_ride", methods=["POST"])
 def ride_test():
     request_json = request.form
@@ -190,19 +215,16 @@ def ride_test():
     user_id = request_json["user_id"]
     channel_id = request_json["channel_id"]
     actions = []
-    create_row_data = {'name': 'First Last',
-                  'address':'Address',
-                  'start_time':"Thu, 02 Aug 2018 06:13:00",
-                  'end_time':"Thu, 30 Aug 2018 06:13:00",
-                  'creator':'red'}
-    res= requests.post(url=RIDEURL+"/create/event", json=create_row_data)
     rides_info = requests.get(RIDEURL+"/all")
     rides = json.loads(rides_info.text)
     print(rides)
+    rit_check, csh_check, username = csh_user_check(user_id)
     for ride in rides:
         actions.append(new_button("get_event_info", ":blue_car:"+ride["name"], str(ride["id"])+"_event_id"))
     main_text = "I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride :ride:"
     button_text = "Click On the a Ride Button to see ride info"
+    if csh_check:
+        actions.append(new_button("create_event", "Create New Event", (f"{username}")))
     shown_message = ephm_messgae(user_id, channel_id, actions, main_text, button_text)
     return make_response("", 200)
 
@@ -231,7 +253,8 @@ def message_actions():
                 ephm_messgae(user_id, channel_id, [], "You have successfully left the car :grin:")
                 car_info(car_id, user_id, channel_id)
             else:
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
+                                                        f"please contact @{MAINTAINER} on slack"))
         elif message_action["actions"][0]["name"] == "delete_car_action":
             payload = message_action["actions"][0]["value"].split(",")
             event_id = payload[0]
@@ -242,7 +265,19 @@ def message_actions():
                 ephm_messgae(user_id, channel_id, [], "You have successfully deleted your car")
                 event_info(event_id, user_id, channel_id)
             else:
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
+                                                        f"please contact @{MAINTAINER} on slack"))
+        elif message_action["actions"][0]["name"] == "delete_event_action":
+            payload = message_action["actions"][0]["value"].split(",")
+            event_id = payload[0]
+            username = payload[1]
+            channel_id = message_action["channel"]["id"]
+            car_action = requests.delete(RIDEURL+f"/delete/event/{event_id}/{username}")
+            if car_action.status_code == 200:
+                ephm_messgae(user_id, channel_id, [], "You have successfully deleted your event")
+            else:
+                ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
+                                                        f"please contact @{MAINTAINER} on slack"))
         elif message_action["actions"][0]["name"] == "join_car_action":
             payload = message_action["actions"][0]["value"].split(",")
             car_id = payload[0]
@@ -255,21 +290,46 @@ def message_actions():
                 ephm_messgae(user_id, channel_id, [], "You have successfully joined the car :drooling_face:")
                 car_info(car_id, user_id, channel_id)
             else:
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
+                                                        f"please contact @{MAINTAINER} on slack"))
         elif message_action["actions"][0]["name"] == "create_car":
-            elements = [create_dialog_dropdown("Amount of passengers", "passanger_amount", "Select number of passengers", create_numbers())]
-            open_dialog = dialog_popup(message_action["trigger_id"], "car_creation_form;"+message_action["actions"][0]["value"], elements, "Create Car")
+            elements = [create_dialog_dropdown("Amount of passengers", "passanger_amount",
+                                                "Select number of passengers", create_numbers())]
+            open_dialog = dialog_popup(message_action["trigger_id"],
+                                        "car_creation_form;"+message_action["actions"][0]["value"],
+                                        elements, "Create Car")
+        elif message_action["actions"][0]["name"] == "create_event":
+            start_dates = create_dates()
+            elements = [create_dialog_text_field("Event Name", "event_name", "This is a New Event"),
+            create_dialog_text_area("Event Address", "event_address", "Please enter full address for destination"),
+            create_dialog_dropdown("Start Time of event", "start_time",
+                                                "Select the date of when the event starts", start_dates)]
+            open_dialog = dialog_popup(message_action["trigger_id"],
+                                        "event_creation_form;"+message_action["actions"][0]["value"],
+                                        elements, "Create Event")
     elif message_action["type"] == "dialog_submission":
         payload = message_action["callback_id"].split(";")
         channel_id = message_action["channel"]["id"]
         if payload[0] == 'car_creation_form':
-            made_car = create_car(payload[1], payload[2], payload[3], payload[4], payload[5], message_action["submission"]["passanger_amount"])
+            made_car = create_car(payload[1], payload[2], payload[3], payload[4],
+                                payload[5], message_action["submission"]["passanger_amount"])
             if made_car.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully made a car")
                 event_info(payload[1], user_id, channel_id)
             else:
-                print(made_car.text)
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
+                                                        f"please contact @{MAINTAINER} on slack"))
+        elif payload[0] == 'event_creation_form':
+            time_format = '%a, %d %b %Y %H:%M:%S'
+            end_time = datetime.strptime(message_action["submission"]["start_time"], time_format)+timedelta(days=1)
+            made_event = create_event(message_action["submission"]["event_name"],
+            message_action["submission"]["event_address"], message_action["submission"]["start_time"],
+            end_time.strftime(time_format), payload[1])
+            if made_event.status_code == 200:
+                ephm_messgae(user_id, channel_id, [], "You have successfully made a event")
+            else:
+                ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
+                                                        f"please contact @{MAINTAINER} on slack"))
     return make_response("", 200)
 
 
