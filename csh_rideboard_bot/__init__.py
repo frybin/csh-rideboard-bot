@@ -2,6 +2,7 @@ import os
 import re
 import json
 import requests
+from datetime import datetime
 from flask import Flask, request, make_response, Response
 from slackclient import SlackClient
 
@@ -136,6 +137,10 @@ def event_info(event_id, user_id, channel_id):
                 f"Start Time of Event:  {event_start_time} \nEnd Time of Event: {event_end_time} \n"
                 f"Current Amount of Cars in the Event:  {count_cars} \n Event Creator:  {event_creator} \n")
     button_text = "Click on a Car to see Car info"
+    time_format = '%a, %d %b %Y %H:%M:%S %Z'
+    correct_time_format = '%a, %d %b %Y %H:%M:%S'
+    event_start_time = datetime.strptime(event_start_time, time_format).strftime(correct_time_format)
+    event_end_time = datetime.strptime(event_end_time, time_format).strftime(correct_time_format)
     if csh_check:
         car_buttons.append(new_button("create_car", "Create New Car", f"{event_id};{username};{real_name};{event_start_time};{event_end_time}"))
     shown_message = ephm_messgae(user_id, channel_id, car_buttons, main_text, button_text)
@@ -155,9 +160,9 @@ def car_info(car_id, user_id, channel_id):
     rit_check, csh_check, username = csh_user_check(user_id)
     real_name = get_user_info(user_id)["real_name_normalized"]
     if username in car_current_passangers and rit_check:
-        actions.append(new_button("leave_car_action", "Leave Car", str(car['ride_id'])+","+username))
+        actions.append(new_button("leave_car_action", "Leave Car", str(car['ride_id'])+","+username+","+str(car_id)))
     elif username == car['username'] and csh_check:
-        actions.append(new_button("car_action", "Edit Car", "Link to for car owner to edit car"))
+        actions.append(new_button("delete_car_action", "Delete Car", str(car['ride_id'])+","+username))
     elif rit_check:
         actions.append(new_button("join_car_action", "Join Car", f"{str(car_id)},{username},{real_name}"))
     main_text = (f"Driver Name: {car_driver} \nAvalible Seats: {car_avalible_seats} \n"
@@ -185,12 +190,12 @@ def ride_test():
     user_id = request_json["user_id"]
     channel_id = request_json["channel_id"]
     actions = []
-    # create_row_data = {'name': 'First Last',
-    #               'address':'Address',
-    #               'start_time':"Thu, 02 Aug 2018 06:13:00",
-    #               'end_time':"Thu, 15 Aug 2018 06:13:00",
-    #               'creator':'red'}
-    # res= requests.post(url=RIDEURL+"/create/event", json=create_row_data)
+    create_row_data = {'name': 'First Last',
+                  'address':'Address',
+                  'start_time':"Thu, 02 Aug 2018 06:13:00",
+                  'end_time':"Thu, 30 Aug 2018 06:13:00",
+                  'creator':'red'}
+    res= requests.post(url=RIDEURL+"/create/event", json=create_row_data)
     rides_info = requests.get(RIDEURL+"/all")
     rides = json.loads(rides_info.text)
     print(rides)
@@ -219,12 +224,25 @@ def message_actions():
             payload = message_action["actions"][0]["value"].split(",")
             event_id = payload[0]
             username = payload[1]
+            car_id = payload[2]
             channel_id = message_action["channel"]["id"]
             car_action = requests.put(RIDEURL+f"/leave/{event_id}/{username}")
             if car_action.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully left the car :grin:")
+                car_info(car_id, user_id, channel_id)
             else:
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact {MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
+        elif message_action["actions"][0]["name"] == "delete_car_action":
+            payload = message_action["actions"][0]["value"].split(",")
+            event_id = payload[0]
+            username = payload[1]
+            channel_id = message_action["channel"]["id"]
+            car_action = requests.delete(RIDEURL+f"/delete/car/{event_id}/{username}")
+            if car_action.status_code == 200:
+                ephm_messgae(user_id, channel_id, [], "You have successfully deleted your car")
+                event_info(event_id, user_id, channel_id)
+            else:
+                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
         elif message_action["actions"][0]["name"] == "join_car_action":
             payload = message_action["actions"][0]["value"].split(",")
             car_id = payload[0]
@@ -237,10 +255,10 @@ def message_actions():
                 ephm_messgae(user_id, channel_id, [], "You have successfully joined the car :drooling_face:")
                 car_info(car_id, user_id, channel_id)
             else:
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact {MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
         elif message_action["actions"][0]["name"] == "create_car":
             elements = [create_dialog_dropdown("Amount of passengers", "passanger_amount", "Select number of passengers", create_numbers())]
-            open_dialog = dialog_popup(message_action["trigger_id"], "car_creation_form;"+message_action["actions"][0]["value"], elements,"Create Car")
+            open_dialog = dialog_popup(message_action["trigger_id"], "car_creation_form;"+message_action["actions"][0]["value"], elements, "Create Car")
     elif message_action["type"] == "dialog_submission":
         payload = message_action["callback_id"].split(";")
         channel_id = message_action["channel"]["id"]
@@ -251,7 +269,7 @@ def message_actions():
                 event_info(payload[1], user_id, channel_id)
             else:
                 print(made_car.text)
-                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact {MAINTAINER} on slack")
+                ephm_messgae(user_id, channel_id, [], f"Oops, something went wrong please contact @{MAINTAINER} on slack")
     return make_response("", 200)
 
 
