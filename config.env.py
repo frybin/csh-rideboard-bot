@@ -14,3 +14,6 @@ OAUTH_TOKEN = os.environ.get('SLACK_OAUTH_TOKEN', '')
 # RideBoard API config
 RIDEBOARD_ADDR = os.environ.get('RIDEBOARD', 'https://rideboard-api.csh.rit.edu')
 RIDEBOARD_KEY = os.environ.get('RIDEBOARD_API_KEY', '')
+
+# Info
+MAINTAINER = os.environ.get('MAINTAINER', 'red')

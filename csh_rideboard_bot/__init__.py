@@ -18,7 +18,7 @@ else:
 slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 OAUTH_ID = app.config['OAUTH_TOKEN']
 RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
-MAINTAINER = "red"
+MAINTAINER = app.config['MAINTAINER']
 
 # pylint: disable=wrong-import-position
 from csh_rideboard_bot.utils import (new_button, create_numbers, create_dates,
