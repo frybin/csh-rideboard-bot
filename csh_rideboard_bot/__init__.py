@@ -20,6 +20,7 @@ OAUTH_ID = app.config['OAUTH_TOKEN']
 RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
 MAINTAINER = "red"
 
+# pylint: disable=wrong-import-position
 from csh_rideboard_bot.utils import (new_button, create_numbers, create_dates,
                                     create_dialog_dropdown, create_car, create_dialog_text_field,
                                     create_dialog_text_area, get_user_info, csh_user_check, create_event)
