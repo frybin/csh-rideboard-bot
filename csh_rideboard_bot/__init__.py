@@ -21,7 +21,7 @@ RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
 MAINTAINER = app.config['MAINTAINER']
 
 # pylint: disable=wrong-import-position
-from csh_rideboard_bot.utils import (new_button, create_numbers, create_dates,
+from csh_rideboard_bot.utils import (delete_ephemeral, new_button, create_numbers, create_dates,
                                     create_dialog_dropdown, create_car, create_dialog_text_field,
                                     create_dialog_text_area, get_user_info, csh_user_check, create_event)
 
@@ -129,7 +129,7 @@ def ride_start():
     for ride in rides:
         actions.append(new_button("get_event_info", ":blue_car:"+ride["name"], str(ride["id"])+"_event_id"))
     main_text = "I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride"
-    button_text = "Click On the a Ride Button to see ride info"
+    button_text = "Click on a Ride's Name to see the Ride's info \nClick on Create New Event to make a new event"
     if csh_check:
         actions.append(new_button("create_event", "Create New Event", (f"{username}")))
     ephm_messgae(user_id, channel_id, actions, main_text, button_text)
@@ -138,22 +138,23 @@ def ride_start():
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     message_action = json.loads(request.form["payload"])
+    response_url = message_action['response_url']
     user_id = message_action["user"]["id"]
+    channel_id = message_action["channel"]["id"]
     if message_action["type"] == "interactive_message":
         if message_action["actions"][0]["name"] == "get_event_info":
             event_id = message_action["actions"][0]["value"].split("_")[0]
-            channel_id = message_action["channel"]["id"]
             event_info(event_id, user_id, channel_id)
+            delete_ephemeral(response_url)
         elif message_action["actions"][0]["name"] == "get_car_info":
             car_id = message_action["actions"][0]["value"].split("_")[0]
-            channel_id = message_action["channel"]["id"]
             car_info(car_id, user_id, channel_id)
+            delete_ephemeral(response_url)
         elif message_action["actions"][0]["name"] == "leave_car_action":
             payload = message_action["actions"][0]["value"].split(",")
             event_id = payload[0]
             username = payload[1]
             car_id = payload[2]
-            channel_id = message_action["channel"]["id"]
             car_action = requests.put(RIDEURL+f"/leave/{event_id}/{username}")
             if car_action.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully left the car :grin:")
@@ -161,11 +162,11 @@ def message_actions():
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
+            delete_ephemeral(response_url)
         elif message_action["actions"][0]["name"] == "delete_car_action":
             payload = message_action["actions"][0]["value"].split(",")
             event_id = payload[0]
             username = payload[1]
-            channel_id = message_action["channel"]["id"]
             car_action = requests.delete(RIDEURL+f"/delete/car/{event_id}/{username}")
             if car_action.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully deleted your car")
@@ -173,24 +174,24 @@ def message_actions():
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
+            delete_ephemeral(response_url)
         elif message_action["actions"][0]["name"] == "delete_event_action":
             payload = message_action["actions"][0]["value"].split(",")
             event_id = payload[0]
             username = payload[1]
-            channel_id = message_action["channel"]["id"]
             car_action = requests.delete(RIDEURL+f"/delete/event/{event_id}/{username}")
             if car_action.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully deleted your event")
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
+            delete_ephemeral(response_url)
         elif message_action["actions"][0]["name"] == "join_car_action":
             payload = message_action["actions"][0]["value"].split(",")
             car_id = payload[0]
             username = payload[1]
             first_name = payload[2]
             last_name = "(Slack)"
-            channel_id = message_action["channel"]["id"]
             car_action = requests.put(RIDEURL+f"/join/{car_id}/{username}/{first_name}/{last_name}")
             if car_action.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully joined the car :drooling_face:")
@@ -200,7 +201,9 @@ def message_actions():
                                                         f"please contact @{MAINTAINER} on slack"))
         elif message_action["actions"][0]["name"] == "create_car":
             elements = [create_dialog_dropdown("Amount of passengers", "passanger_amount",
-                                                "Select number of passengers", create_numbers())]
+                                                "Select number of passengers", create_numbers()),
+                        create_dialog_text_area("Driver Comment", "driver_comment",
+                                        "Add any comments that you would like your riders to know")]
             dialog_popup(message_action["trigger_id"],
                                         "car_creation_form;"+message_action["actions"][0]["value"],
                                         elements, "Create Car")
@@ -213,12 +216,13 @@ def message_actions():
             dialog_popup(message_action["trigger_id"],
                                         "event_creation_form;"+message_action["actions"][0]["value"],
                                         elements, "Create Event")
+        delete_ephemeral(response_url)
     elif message_action["type"] == "dialog_submission":
         payload = message_action["callback_id"].split(";")
-        channel_id = message_action["channel"]["id"]
         if payload[0] == 'car_creation_form':
             made_car = create_car(payload[1], payload[2], payload[3], payload[4],
-                                payload[5], message_action["submission"]["passanger_amount"])
+                                payload[5], message_action["submission"]["passanger_amount"],
+                                message_action["submission"]["driver_comment"])
             if made_car.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully made a car")
                 event_info(payload[1], user_id, channel_id)
@@ -236,6 +240,7 @@ def message_actions():
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
+        delete_ephemeral(response_url)
     return make_response("", 200)
 
 

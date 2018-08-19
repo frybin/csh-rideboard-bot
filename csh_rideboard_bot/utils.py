@@ -3,6 +3,16 @@ from datetime import datetime, timedelta
 import requests
 from csh_rideboard_bot import OAUTH_ID, RIDEURL
 
+def delete_ephemeral(url):
+    create_row_data = {
+                        'response_type': 'ephemeral',
+                        'text': '',
+                        'replace_original': True,
+                        'delete_original': True
+                        }
+    res = requests.post(url=url, json=create_row_data)
+    return res
+
 def new_button(name, text, value):
     attachment = {
         "name": name,
@@ -61,13 +71,14 @@ def create_dialog_text_area(label, name, hint):
             }
     return result
 
-def create_car(event_id, username, name, departure_time, return_time, max_capacity):
+def create_car(event_id, username, name, departure_time, return_time, max_capacity, driver_comment=""):
     create_row_data = {
                         "name": name,
                         "username":username,
                         "departure_time":departure_time,
                         "return_time":return_time,
                         "max_capacity":max_capacity,
+                        "driver_comment": driver_comment
                         }
     res = requests.post(url=RIDEURL+f"/create/car/{event_id}", json=create_row_data)
     return res
