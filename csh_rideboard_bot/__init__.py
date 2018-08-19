@@ -261,19 +261,22 @@ def message_actions():
                                 payload[5], message_action["submission"]["passanger_amount"],
                                 message_action["submission"]["driver_comment"])
             if made_car.status_code == 200:
-                ephm_messgae(user_id, channel_id, [], "You have successfully made a car")
+                ephm_messgae(user_id, channel_id, [], ("You have successfully made a car\nTo edit time or make changes"
+                                                       " to the car please go to the rideboard webapp"))
                 event_info(payload[1], user_id, channel_id)
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
         # If the user submitted the dialog to make a event, it does the appropiate actions
         elif payload[0] == 'event_creation_form':
-            end_time = datetime.strptime(message_action["submission"]["start_time"], correct_time_format)+timedelta(days=1)
+            end_time = datetime.strptime(message_action["submission"]["start_time"],
+                                        correct_time_format)+timedelta(days=1)
             made_event = create_event(message_action["submission"]["event_name"],
             message_action["submission"]["event_address"], message_action["submission"]["start_time"],
             end_time.strftime(correct_time_format), payload[1])
             if made_event.status_code == 200:
-                ephm_messgae(user_id, channel_id, [], "You have successfully made a event")
+                ephm_messgae(user_id, channel_id, [], ("You have successfully made a event\nTo edit time or make "
+                                                       "changes to the event please go to the rideboard webapp"))
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
