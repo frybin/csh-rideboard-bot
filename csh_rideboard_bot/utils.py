@@ -1,8 +1,13 @@
+####################################
+# File name: utils.py              #
+# Author: Fred Rybin               #
+####################################
 import re
 from datetime import datetime, timedelta
 import requests
 from csh_rideboard_bot import OAUTH_ID, RIDEURL
 
+# Method used to delete a ephemeral message
 def delete_ephemeral(url):
     create_row_data = {
                         'response_type': 'ephemeral',
@@ -13,6 +18,7 @@ def delete_ephemeral(url):
     res = requests.post(url=url, json=create_row_data)
     return res
 
+# Create a button that can be used in a slack message
 def new_button(name, text, value):
     attachment = {
         "name": name,
@@ -22,6 +28,7 @@ def new_button(name, text, value):
     }
     return attachment
 
+# Creates a list of numbers that can be used for slack dialog dropdown
 def create_numbers(max_option=10):
     options = []
     for i in range(2, max_option+2):
@@ -31,6 +38,7 @@ def create_numbers(max_option=10):
         })
     return options
 
+# Creates a list of dates that can be used for slack dialog dropdown
 def create_dates(max_option=10):
     options = []
     time_format = '%a, %d %b %Y %H:%M:%S'
@@ -42,6 +50,7 @@ def create_dates(max_option=10):
         })
     return options
 
+# Creates a dictionary that makes a dropdown for a slack dialog popup
 def create_dialog_dropdown(label, name, placeholder, options):
     result = {
             "label": label,
@@ -52,6 +61,7 @@ def create_dialog_dropdown(label, name, placeholder, options):
             }
     return result
 
+# Creates a dictionary that makes a text field for a slack dialog popup
 def create_dialog_text_field(label, name, placeholder, subtype=""):
     result = {
             "label": label,
@@ -62,6 +72,7 @@ def create_dialog_text_field(label, name, placeholder, subtype=""):
             }
     return result
 
+# Creates a dictionary that makes a text area for a slack dialog popup
 def create_dialog_text_area(label, name, hint):
     result = {
             "label": label,
@@ -71,6 +82,7 @@ def create_dialog_text_area(label, name, hint):
             }
     return result
 
+# Uses the variables to make a car for a ride and then sends post request to rideboard api
 def create_car(event_id, username, name, departure_time, return_time, max_capacity, driver_comment=""):
     create_row_data = {
                         "name": name,
@@ -83,7 +95,8 @@ def create_car(event_id, username, name, departure_time, return_time, max_capaci
     res = requests.post(url=RIDEURL+f"/create/car/{event_id}", json=create_row_data)
     return res
 
-def create_event(event_name, address, start_time, end_time, username,):
+# Uses the variables to make a ride then sends post request to rideboard api
+def create_event(event_name, address, start_time, end_time, username):
     create_row_data = {
                         'name': event_name,
                         'address': address,
@@ -94,12 +107,14 @@ def create_event(event_name, address, start_time, end_time, username,):
     res = requests.post(url=RIDEURL+"/create/event", json=create_row_data)
     return res
 
+# Get's a slack's user account information
 def get_user_info(user_id):
     addr = 'https://slack.com/api/users.profile.get?'
     addr += 'token=' + OAUTH_ID + '&user=' + user_id
     res = requests.get(addr)
     return res.json()["profile"]
 
+# Chesks user's email to see if they are part of csh or rit
 def csh_user_check(user_id):
     user_email = get_user_info(user_id)["email"]
     rit_email = False
