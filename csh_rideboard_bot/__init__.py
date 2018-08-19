@@ -5,6 +5,7 @@
 import os
 import re
 import json
+import random
 from datetime import datetime, timedelta
 import requests
 from flask import Flask, request, make_response, Response
@@ -30,7 +31,8 @@ MAINTAINER = app.config['MAINTAINER']
 # pylint: disable=wrong-import-position
 from csh_rideboard_bot.utils import (delete_ephemeral, new_button, create_numbers, create_dates,
                                     create_dialog_dropdown, create_car, create_dialog_text_field,
-                                    create_dialog_text_area, get_user_info, csh_user_check, create_event)
+                                    create_dialog_text_area, get_user_info, csh_user_check, create_event,
+                                    timezone_string_converter, gmt, edt, time_format, correct_time_format)
 
 # Uses Slack Client to make Dialog Popup
 def dialog_popup(trigger, prams, elements, title):
@@ -55,7 +57,7 @@ def ephm_messgae(user_id, channel_id, actions, main_text, button_text=""):
         attachments=[{
             "text": button_text,
             "callback_id": user_id + "_all_rides",
-            "color": "#fc6819",
+            "color": "%06x" % random.randint(0, 0xFFFFFF),
             "attachment_type": "default",
             "actions": actions
         },],
@@ -79,6 +81,8 @@ def event_info(event_id, user_id, channel_id):
     csh_check = checks[1]
     username = checks[2]
     real_name = get_user_info(user_id)["real_name_normalized"]
+    event_start_time = timezone_string_converter(event_start_time, gmt, edt).strftime(time_format)
+    event_end_time = timezone_string_converter(event_end_time, gmt, edt).strftime(time_format)
     # Makes buttons for each car in the event
     for car in ride['cars']:
         car_buttons.append(new_button("get_car_info", car['name']+"'s Car", str(car['id'])+"_car_id"))
@@ -87,10 +91,8 @@ def event_info(event_id, user_id, channel_id):
                 f"Start Time of Event:  {event_start_time} \nEnd Time of Event: {event_end_time} \n"
                 f"Current Amount of Cars in the Event:  {count_cars} \n Event Creator:  {event_creator} \n")
     button_text = "Click on a Car to see Car info"
-    time_format = '%a, %d %b %Y %H:%M:%S %Z'
-    correct_time_format = '%a, %d %b %Y %H:%M:%S'
-    event_start_time = datetime.strptime(event_start_time, time_format).strftime(correct_time_format)
-    event_end_time = datetime.strptime(event_end_time, time_format).strftime(correct_time_format)
+    event_start_time = timezone_string_converter(event_start_time, edt, gmt).strftime(correct_time_format)
+    event_end_time = timezone_string_converter(event_end_time, edt, gmt).strftime(correct_time_format)
     # If the user is a CSH member then they could create a car for the event
     if csh_check:
         car_buttons.append(new_button("create_car", "Create New Car", (f"{event_id};{username};"
@@ -119,6 +121,8 @@ def car_info(car_id, user_id, channel_id):
     csh_check = checks[1]
     username = checks[2]
     real_name = get_user_info(user_id)["real_name_normalized"]
+    car_departure_time = timezone_string_converter(car_departure_time, gmt, edt).strftime(time_format)
+    car_return_time = timezone_string_converter(car_return_time, gmt, edt).strftime(time_format)
     # If the user is in the car, then they could leave the car
     if username in car_current_passangers and rit_check:
         actions.append(new_button("leave_car_action", "Leave Car", str(car['ride_id'])+","+username+","+str(car_id)))
@@ -187,7 +191,7 @@ def message_actions():
             car_id = payload[2]
             car_action = requests.put(RIDEURL+f"/leave/{event_id}/{username}")
             if car_action.status_code == 200:
-                ephm_messgae(user_id, channel_id, [], "You have successfully left the car :grin:")
+                ephm_messgae(user_id, channel_id, [], "You have successfully left the car")
                 car_info(car_id, user_id, channel_id)
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
@@ -224,7 +228,7 @@ def message_actions():
             last_name = "(Slack)"
             car_action = requests.put(RIDEURL+f"/join/{car_id}/{username}/{first_name}/{last_name}")
             if car_action.status_code == 200:
-                ephm_messgae(user_id, channel_id, [], "You have successfully joined the car :drooling_face:")
+                ephm_messgae(user_id, channel_id, [], "You have successfully joined the car")
                 car_info(car_id, user_id, channel_id)
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
@@ -264,11 +268,10 @@ def message_actions():
                                                         f"please contact @{MAINTAINER} on slack"))
         # If the user submitted the dialog to make a event, it does the appropiate actions
         elif payload[0] == 'event_creation_form':
-            time_format = '%a, %d %b %Y %H:%M:%S'
-            end_time = datetime.strptime(message_action["submission"]["start_time"], time_format)+timedelta(days=1)
+            end_time = datetime.strptime(message_action["submission"]["start_time"], correct_time_format)+timedelta(days=1)
             made_event = create_event(message_action["submission"]["event_name"],
             message_action["submission"]["event_address"], message_action["submission"]["start_time"],
-            end_time.strftime(time_format), payload[1])
+            end_time.strftime(correct_time_format), payload[1])
             if made_event.status_code == 200:
                 ephm_messgae(user_id, channel_id, [], "You have successfully made a event")
             else:

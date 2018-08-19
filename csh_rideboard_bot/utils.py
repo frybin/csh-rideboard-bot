@@ -4,8 +4,28 @@
 ####################################
 import re
 from datetime import datetime, timedelta
+from dateutil import tz
 import requests
 from csh_rideboard_bot import OAUTH_ID, RIDEURL
+
+utc = tz.gettz('UTC')
+gmt = tz.gettz('GMT')
+edt = tz.gettz('America/New_York')
+time_format = '%a, %d %b %Y %H:%M:%S %Z'
+correct_time_format = '%a, %d %b %Y %H:%M:%S'
+
+# Converts a datetime object from one timezone to another
+def timezone_converter(time, from_zone, to_zone):
+    time = time.replace(tzinfo=from_zone)
+    time = time.astimezone(to_zone)
+    return time
+
+# Converts a string to a datetime object and then converts one timezone to another
+def timezone_string_converter(time, from_zone, to_zone):
+    time = datetime.strptime(time, time_format)
+    time = time.replace(tzinfo=from_zone)
+    time = time.astimezone(to_zone)
+    return time
 
 # Method used to delete a ephemeral message
 def delete_ephemeral(url):
@@ -41,12 +61,13 @@ def create_numbers(max_option=10):
 # Creates a list of dates that can be used for slack dialog dropdown
 def create_dates(max_option=10):
     options = []
-    time_format = '%a, %d %b %Y %H:%M:%S'
-    for i in range(1, max_option+1):
-        option = (datetime.now()+timedelta(days=i)).strftime(time_format)
+    current_time = datetime.utcnow()
+    for i in range(max_option+1):
+        label = timezone_converter(current_time+timedelta(days=i), utc, edt).strftime(time_format)
+        value = (current_time+timedelta(days=i)).strftime(correct_time_format)
         options.append({
-            "label": option,
-            "value": option
+            "label": label,
+            "value": value
         })
     return options
 
