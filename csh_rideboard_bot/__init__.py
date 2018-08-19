@@ -91,8 +91,8 @@ def event_info(event_id, user_id, channel_id):
                 f"Start Time of Event:  {event_start_time} \nEnd Time of Event: {event_end_time} \n"
                 f"Current Amount of Cars in the Event:  {count_cars} \n Event Creator:  {event_creator} \n")
     button_text = "Click on a Car to see Car info"
-    event_start_time = datetime.strptime(event_start_time, time_format).strftime(correct_time_format)
-    event_end_time = datetime.strptime(event_end_time, time_format).strftime(correct_time_format)
+    event_start_time = datetime.strptime(ride['start_time'], time_format).strftime(correct_time_format)
+    event_end_time = datetime.strptime(ride['end_time'], time_format).strftime(correct_time_format)
     # If the user is a CSH member then they could create a car for the event
     if csh_check:
         car_buttons.append(new_button("create_car", "Create New Car", (f"{event_id};{username};"
