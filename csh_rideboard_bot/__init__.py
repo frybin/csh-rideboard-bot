@@ -27,6 +27,7 @@ slack_client = SlackClient(app.config['SLACK_BOT_TOKEN'])
 OAUTH_ID = app.config['OAUTH_TOKEN']
 RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
 MAINTAINER = app.config['MAINTAINER']
+RIDEWEB = app.config['RIDEBOARD_WEB']
 
 # pylint: disable=wrong-import-position
 from csh_rideboard_bot.utils import (delete_ephemeral, new_button, create_numbers, create_dates,
@@ -157,7 +158,9 @@ def ride_start():
     for ride in rides:
         actions.append(new_button("get_event_info", ":blue_car:"+ride["name"], str(ride["id"])+"_event_id"))
     # Text Displayed to user
-    main_text = "I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride"
+    main_text = ("I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride\n"
+    "If you are a CSH Member please use your @csh.rit.edu email as your slack email to interact with Rideboard Bot\n"
+    "If you don't have a CSH email, use you're @rit.edu email to be able to join or leave cars")
     button_text = "Click on a Ride's Name to see the Ride's info \nClick on Create New Event to make a new event"
     # If the user is a CSH member then they could create a event
     if csh_check:
@@ -261,8 +264,10 @@ def message_actions():
                                 payload[5], message_action["submission"]["passanger_amount"],
                                 message_action["submission"]["driver_comment"])
             if made_car.status_code == 200:
+                car_id = json.loads(made_car.text)["cars"][-1]["id"]
                 ephm_messgae(user_id, channel_id, [], ("You have successfully made a car\nTo edit time or make changes"
-                                                       " to the car please go to the rideboard webapp"))
+                                                       " to the car please go to the "
+                                                       f"<{RIDEWEB}/edit/carform/{car_id}|Web App>"))
                 event_info(payload[1], user_id, channel_id)
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
@@ -275,8 +280,10 @@ def message_actions():
             message_action["submission"]["event_address"], message_action["submission"]["start_time"],
             end_time.strftime(correct_time_format), payload[1])
             if made_event.status_code == 200:
-                ephm_messgae(user_id, channel_id, [], ("You have successfully made a event\nTo edit time or make "
-                                                       "changes to the event please go to the rideboard webapp"))
+                event_id = json.loads(made_event.text)["id"]
+                ephm_messgae(user_id, channel_id, [], (f"You have successfully made a event\nTo edit time or make "
+                                                       f"changes to the event please go to the "
+                                                       f"<{RIDEWEB}/edit/rideform/{event_id}|Web App>"))
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
