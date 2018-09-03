@@ -10,6 +10,7 @@ SERVER_NAME = os.environ.get('SERVER_NAME', 'rideboard-bot.csh.rit.edu')
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_VERIFICATION_TOKEN = os.environ["SLACK_VERIFICATION_TOKEN"]
 OAUTH_TOKEN = os.environ.get('SLACK_OAUTH_TOKEN', '')
+SLACK_WORKSPACE = os.environ.get('SLACK_WORKSPACE', 'https://cshrit.slack.com')
 
 # RideBoard API config
 RIDEBOARD_ADDR = os.environ.get('RIDEBOARD', 'https://rideboard-api.csh.rit.edu')
