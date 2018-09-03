@@ -161,7 +161,7 @@ def ride_start():
     # Text Displayed to user
     main_text = ("I am Rideboard Bot :oncoming_automobile:, and I\'m here to find you a ride\n"
     "If you are a CSH Member please use your @csh.rit.edu email as your slack email to interact with Rideboard Bot\n"
-    "If you don't have a CSH email, use you're @rit.edu email to be able to join or leave cars"
+    "If you don't have a CSH email, use you're @rit.edu email to be able to join or leave cars\n"
     f"To change your email, <{WORKSPACE_URL}/account/settings#email|Click Here>")
     button_text = "Click on a Ride's Name to see the Ride's info \nClick on Create New Event to make a new event"
     # If the user is a CSH member then they could create a event
