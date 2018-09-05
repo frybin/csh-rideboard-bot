@@ -289,7 +289,7 @@ def message_actions():
                 ephm_messgae(user_id, channel_id, [], (f"You have successfully made a event\nTo edit time or make "
                                                        f"changes to the event please go to the "
                                                        f"<{RIDEWEB}/edit/rideform/{event_id}|CSH Web App> or "
-                                                       f"<{FROSHWEB}/edit/rideform/{event_id}|Intro Web App>))
+                                                       f"<{FROSHWEB}/edit/rideform/{event_id}|Intro Web App>"))
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
