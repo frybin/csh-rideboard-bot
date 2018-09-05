@@ -35,7 +35,8 @@ WORKSPACE_URL = app.config['SLACK_WORKSPACE']
 from csh_rideboard_bot.utils import (delete_ephemeral, new_button, create_numbers, create_dates,
                                     create_dialog_dropdown, create_car, create_dialog_text_field,
                                     create_dialog_text_area, get_user_info, csh_user_check, create_event,
-                                    timezone_string_converter, gmt, edt, time_format, correct_time_format)
+                                    timezone_string_converter, gmt, edt, time_format, correct_time_format,
+                                    timezone_converter)
 
 # Uses Slack Client to make Dialog Popup
 def dialog_popup(trigger, prams, elements, title):
@@ -82,7 +83,6 @@ def event_info(event_id, user_id, channel_id):
     car_buttons = []
     checks = csh_user_check(user_id)
     rit_check = checks[0]
-    csh_check = checks[1]
     username = checks[2]
     real_name = get_user_info(user_id)["real_name_normalized"]
     event_start_time = timezone_string_converter(event_start_time, gmt, edt).strftime(time_format)
@@ -122,7 +122,6 @@ def car_info(car_id, user_id, channel_id):
     actions = []
     checks = csh_user_check(user_id)
     rit_check = checks[0]
-    csh_check = checks[1]
     username = checks[2]
     real_name = get_user_info(user_id)["real_name_normalized"]
     car_departure_time = timezone_string_converter(car_departure_time, gmt, edt).strftime(time_format)
@@ -155,7 +154,7 @@ def ride_start():
     rides_info = requests.get(RIDEURL+"/all")
     rides = json.loads(rides_info.text)
     checks = csh_user_check(user_id)
-    csh_check = checks[1]
+    rit_check = checks[0]
     username = checks[2]
     # Makes buttons to show all currently events in rideboard
     for ride in rides:
@@ -167,7 +166,7 @@ def ride_start():
     f"To change your email, <{WORKSPACE_URL}/account/settings#email|Click Here>")
     button_text = "Click on a Ride's Name to see the Ride's info \nClick on Create New Event to make a new event"
     # If the user is a CSH member then they could create a event
-    if csh_check:
+    if rit_check:
         actions.append(new_button("create_event", "Create New Event", (f"{username}")))
     # Makes and sends a Ephemeral Message to the user
     ephm_messgae(user_id, channel_id, actions, main_text, button_text)
@@ -251,11 +250,9 @@ def message_actions():
                                         elements, "Create Car")
         # If the user pressed on a create event button then it does the nessesary actions to create a event
         elif message_action["actions"][0]["name"] == "create_event":
-            start_dates = create_dates()
             elements = [create_dialog_text_field("Event Name", "event_name", "This is a New Event"),
             create_dialog_text_area("Event Address", "event_address", "Please enter full address for destination"),
-            create_dialog_dropdown("Start Time of event", "start_time",
-                                                "Select the date of when the event starts", start_dates)]
+            create_dialog_text_field("Start Time of event", "start_time", "2018-01-15 20:00")]
             dialog_popup(message_action["trigger_id"],
                                         "event_creation_form;"+message_action["actions"][0]["value"],
                                         elements, "Create Event")
@@ -279,11 +276,20 @@ def message_actions():
                                                         f"please contact @{MAINTAINER} on slack"))
         # If the user submitted the dialog to make a event, it does the appropiate actions
         elif payload[0] == 'event_creation_form':
-            end_time = datetime.strptime(message_action["submission"]["start_time"],
-                                        correct_time_format)+timedelta(days=1)
+            start_time = None
+            # pylint: disable=bare-except
+            try:
+                start_time = datetime.strptime(message_action["submission"]["start_time"], '%Y-%m-%d %H:%M')
+                start_time = timezone_converter(start_time, edt, gmt)
+                start_time = start_time.strftime(correct_time_format)
+            except:
+                ephm_messgae(user_id, channel_id, [], (f"Incorrect Time format entered: "
+                                                        f"Please Enter as Year-Month-Day Hour:Minute Format"))
+                return make_response("", 200)
+            end_time = end_time = datetime.strptime(start_time, correct_time_format)+timedelta(days=1)
             made_event = create_event(message_action["submission"]["event_name"],
-            message_action["submission"]["event_address"], message_action["submission"]["start_time"],
-            end_time.strftime(correct_time_format), payload[1])
+                                    message_action["submission"]["event_address"], start_time,
+                                    end_time.strftime(correct_time_format), payload[1])
             if made_event.status_code == 200:
                 event_id = json.loads(made_event.text)["id"]
                 ephm_messgae(user_id, channel_id, [], (f"You have successfully made a event\nTo edit time or make "
