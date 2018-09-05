@@ -16,6 +16,7 @@ SLACK_WORKSPACE = os.environ.get('SLACK_WORKSPACE', 'https://cshrit.slack.com')
 RIDEBOARD_ADDR = os.environ.get('RIDEBOARD', 'https://rideboard-api.csh.rit.edu')
 RIDEBOARD_KEY = os.environ.get('RIDEBOARD_API_KEY', '')
 RIDEBOARD_WEB = os.environ.get('RIDEBOARD_WEB', 'https://rideboard.csh.rit.edu')
+FROSHBOARD_WEB = os.environ.get('FROSHBOARD_WEB', 'https://froshboard.csh.rit.edu')
 
 # Info
 MAINTAINER = os.environ.get('MAINTAINER', 'red')

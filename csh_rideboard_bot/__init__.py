@@ -28,6 +28,7 @@ OAUTH_ID = app.config['OAUTH_TOKEN']
 RIDEURL = app.config['RIDEBOARD_ADDR']+"/"+app.config['RIDEBOARD_KEY']
 MAINTAINER = app.config['MAINTAINER']
 RIDEWEB = app.config['RIDEBOARD_WEB']
+FROSHWEB = app.config['FROSHBOARD_WEB']
 WORKSPACE_URL = app.config['SLACK_WORKSPACE']
 
 # pylint: disable=wrong-import-position
@@ -80,6 +81,7 @@ def event_info(event_id, user_id, channel_id):
     count_cars = len(ride['cars'])
     car_buttons = []
     checks = csh_user_check(user_id)
+    rit_check = checks[0]
     csh_check = checks[1]
     username = checks[2]
     real_name = get_user_info(user_id)["real_name_normalized"]
@@ -95,12 +97,12 @@ def event_info(event_id, user_id, channel_id):
     button_text = "Click on a Car to see Car info"
     event_start_time = datetime.strptime(ride['start_time'], time_format).strftime(correct_time_format)
     event_end_time = datetime.strptime(ride['end_time'], time_format).strftime(correct_time_format)
-    # If the user is a CSH member then they could create a car for the event
-    if csh_check:
+    # If the user is a member then they could create a car for the event
+    if rit_check:
         car_buttons.append(new_button("create_car", "Create New Car", (f"{event_id};{username};"
                                         f"{real_name};{event_start_time};{event_end_time}")))
     # If the user is the event creator then they could delete the event
-    if username == event_creator and csh_check:
+    if username == event_creator and rit_check:
         car_buttons.append(new_button("delete_event_action", "Delete Event", str(event_id)+","+username))
     # Makes and sends a Ephemeral Message to the user
     shown_message = ephm_messgae(user_id, channel_id, car_buttons, main_text, button_text)
@@ -129,9 +131,9 @@ def car_info(car_id, user_id, channel_id):
     if username in car_current_passangers and rit_check:
         actions.append(new_button("leave_car_action", "Leave Car", str(car['ride_id'])+","+username+","+str(car_id)))
     # If the user is the car creator then they could delete the car
-    elif username == car['username'] and csh_check:
+    elif username == car['username'] and rit_check:
         actions.append(new_button("delete_car_action", "Delete Car", str(car['ride_id'])+","+username))
-    # If the user is a RIT member(Freshman) the they could join the car
+    # If the user is a member the they could join the car
     elif rit_check:
         actions.append(new_button("join_car_action", "Join Car", f"{str(car_id)},{username},{real_name}"))
     # Text Displayed to user
@@ -269,7 +271,8 @@ def message_actions():
                 car_id = json.loads(made_car.text)["cars"][-1]["id"]
                 ephm_messgae(user_id, channel_id, [], ("You have successfully made a car\nTo edit time or make changes"
                                                        " to the car please go to the "
-                                                       f"<{RIDEWEB}/edit/carform/{car_id}|Web App>"))
+                                                       f"<{RIDEWEB}/edit/carform/{car_id}|CSH Web App> or "
+                                                       f"<{FROSHWEB}/edit/carform/{car_id}|Intro Web App>"))
                 event_info(payload[1], user_id, channel_id)
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
@@ -285,7 +288,8 @@ def message_actions():
                 event_id = json.loads(made_event.text)["id"]
                 ephm_messgae(user_id, channel_id, [], (f"You have successfully made a event\nTo edit time or make "
                                                        f"changes to the event please go to the "
-                                                       f"<{RIDEWEB}/edit/rideform/{event_id}|Web App>"))
+                                                       f"<{RIDEWEB}/edit/rideform/{event_id}|CSH Web App> or "
+                                                       f"<{FROSHWEB}/edit/rideform/{event_id}|Intro Web App>))
             else:
                 ephm_messgae(user_id, channel_id, [], (f"Oops, something went wrong "
                                                         f"please contact @{MAINTAINER} on slack"))
