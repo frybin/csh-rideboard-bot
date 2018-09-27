@@ -1,6 +1,6 @@
 # RideBoard Bot
 
-RideBoard Bot is Slack Bot that allows the members to communicate to the RideBoard API to see, create and delete rides and to create, join, leave and delete cars.
+RideBoard Bot is Slack Bot that allows the members to communicate to [RideBoard](https://github.com/ag-ayush/rideboard) using the  [RideBoard API](https://github.com/ag-ayush/RideBoardAPI) to see, create and delete rides and to create, join, leave and delete cars.
 
 [![Travis](https://travis-ci.com/frybin/csh-rideboard-bot.svg?branch=master)](https://travis-ci.com/frybin/csh-rideboard-bot)
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/frybin/csh-rideboard-bot/blob/master/LICENSE)
